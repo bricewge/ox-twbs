@@ -1,14 +1,14 @@
 ;;; ox-twbs.el --- Bootstrap compatible HTML Back-End for Org
 
 ;; Copyright (C) 2011-2014 Free Software Foundation, Inc.
-;; Copyright (C) 2014 Brandon van Beekum
+;; Copyright (C) 2016 Brandon van Beekum
 
 ;; Author: Carsten Dominik <carsten at orgmode dot org>
-;;      Jambunathan K <kjambunathan at gmail dot com>
-;;      Brandon van Beekum <marsmining at gmail dot com>
+;;         Jambunathan K <kjambunathan at gmail dot com>
+;;         Brandon van Beekum <marsmining at gmail dot com>
 ;; URL: https://github.com/marsmining/ox-twbs
 ;; Keywords: org, html, publish, twitter, bootstrap
-;; Version: 0.1.0
+;; Version: 1.0.8
 
 ;; This file is not part of GNU Emacs.
 
@@ -108,7 +108,7 @@
   :export-block "HTML"
   :filters-alist '((:filter-final-output . org-twbs-final-function))
   :menu-entry
-  '(?h "Export to TWBS HTML"
+  '(?w "Export to TWBS HTML"
        ((?H "As HTML buffer" org-twbs-export-as-html)
         (?h "As HTML file" org-twbs-export-to-html)
         (?o "As HTML file and open"
@@ -117,12 +117,14 @@
                 (org-open-file (org-twbs-export-to-html nil s v b)))))))
   :options-alist
   '((:html-extension nil nil org-twbs-extension)
-    (:html-link-org-as-html nil nil org-twbs-link-org-files-as-html)
+    (:html-link-org-files-as-html nil nil org-twbs-link-org-files-as-html)
     (:html-container "HTML_CONTAINER" nil org-twbs-container-element)
     (:html-link-use-abs-url nil "html-link-use-abs-url" org-twbs-link-use-abs-url)
     (:html-link-home "HTML_LINK_HOME" nil org-twbs-link-home)
     (:html-link-up "HTML_LINK_UP" nil org-twbs-link-up)
     (:html-mathjax "HTML_MATHJAX" nil "" space)
+    (:html-mathjax-options nil nil org-twbs-mathjax-options)
+    (:html-mathjax-template nil nil org-twbs-mathjax-template)
     (:html-postamble nil "html-postamble" org-twbs-postamble)
     (:html-preamble nil "html-preamble" org-twbs-preamble)
     (:html-head "HTML_HEAD" nil org-twbs-head newline)
@@ -132,11 +134,18 @@
     (:html-table-attributes nil nil org-twbs-table-default-attributes)
     (:html-table-row-tags nil nil org-twbs-table-row-tags)
     (:html-inline-images nil nil org-twbs-inline-images)
+    (:html-inline-image-rules nil nil org-twbs-inline-image-rules)
     ;; Redefine regular options.
     (:creator "CREATOR" nil org-twbs-creator-string)
     (:with-latex nil "tex" org-twbs-with-latex)
-    (:with-toc nil nil nil)
-    (:section-numbers nil nil nil)
+    (:with-toc nil nil 2)
+    (:with-creator nil nil t)
+    (:section-numbers nil nil t)
+    ;; Extra Options
+    (:gid nil "gid" nil)
+    (:with-headline-numbers nil "whn" t)
+    (:with-toc-todo-keywords nil "toc-todo" nil)
+    (:with-toc-tags nil "toc-tag" nil)
     ;; Retrieve LaTeX header for fragments.
     (:latex-header "LATEX_HEADER" nil nil newline)))
 
@@ -166,7 +175,6 @@ $(function() {
     $(document.body).scrollspy({target: '.bs-docs-sidebar'});
 
     $('.bs-docs-sidebar').affix();
-
 });
 </script>"
   "Basic JavaScript that is needed by HTML files produced by Org mode.")
@@ -181,8 +189,8 @@ html {
 }
 
 body {
-    font-size: 16px;
-    margin-bottom: 95px;
+    font-size: 18px;
+    margin-bottom: 105px;
 }
 
 footer {
@@ -200,6 +208,7 @@ footer > div {
 footer p {
     margin: 0 0 5px;
     text-align: center;
+    font-size: 16px;
 }
 
 #table-of-contents {
@@ -208,11 +217,22 @@ footer p {
 }
 
 blockquote p {
-    font-size: 16px;
+    font-size: 18px;
 }
 
 pre {
     font-size: 16px;
+}
+
+.footpara {
+    display: inline-block;
+}
+
+figcaption {
+  font-size: 16px;
+  color: #666;
+  font-style: italic;
+  padding-bottom: 15px;
 }
 
 /* from twbs docs */
@@ -275,6 +295,28 @@ pre {
     font-weight: 500;
 }
 
+/* Nav: third level (shown on .active) */
+.bs-docs-sidebar .nav .nav .nav {
+    padding-bottom: 10px;
+}
+.bs-docs-sidebar .nav .nav .nav > li > a {
+    padding-top: 1px;
+    padding-bottom: 1px;
+    padding-left: 40px;
+    font-size: 12px;
+    font-weight: normal;
+}
+.bs-docs-sidebar .nav .nav .nav > li > a:hover,
+.bs-docs-sidebar .nav .nav .nav > li > a:focus {
+    padding-left: 39px;
+}
+.bs-docs-sidebar .nav .nav .nav > .active > a,
+.bs-docs-sidebar .nav .nav .nav > .active:hover > a,
+.bs-docs-sidebar .nav .nav .nav > .active:focus > a {
+    padding-left: 38px;
+    font-weight: 500;
+}
+
 /* Show and affix the side nav when space allows it */
 @media (min-width: 992px) {
     .bs-docs-sidebar .nav > .active > ul {
@@ -291,6 +333,10 @@ pre {
     }
     .bs-docs-sidebar.affix-bottom {
         position: absolute; /* Undo the static from mobile first approach */
+    }
+    .bs-docs-sidebar.affix .bs-docs-sidenav,.bs-docs-sidebar.affix-bottom .bs-docs-sidenav {
+        margin-top: 0;
+        margin-bottom: 0
     }
 }
 @media (min-width: 1200px) {
@@ -657,6 +703,11 @@ Otherwise, place it near the end."
 
 ;;;; Tags
 
+(defcustom org-twbs-tag-class "badge"
+  "Class name for tags."
+  :group 'org-export-twbs
+  :type 'string)
+
 (defcustom org-twbs-tag-class-prefix ""
   "Prefix to class names for TODO keywords.
 Each tag gets a class given by the tag itself, with this prefix.
@@ -725,81 +776,68 @@ See `format-time-string' for more information on its components."
 ;;;; Template :: Mathjax
 
 (defcustom org-twbs-mathjax-options
-  '((path  "http://orgmode.org/mathjax/MathJax.js")
+  '((path  "https://cdn.mathjax.org/mathjax/latest/MathJax.js?config=TeX-AMS_SVG")
     (scale "100")
+    (dscale "100")
     (align "center")
     (indent "2em")
-    (mathml nil))
+    (messages "none"))
   "Options for MathJax setup.
 
 path        The path where to find MathJax
-scale       Scaling for the HTML-CSS backend, usually between 100 and 133
+scale       Scaling for the HTML-CSS backend, omit percentage symbol
+dscale      Scaling for displayed math, omit percentage symbol
 align       How to align display math: left, center, or right
 indent      If align is not center, how far from the left/right side?
-mathml      Should a MathML player be used if available?
-            This is faster and reduces bandwidth use, but currently
-            sometimes has lower spacing quality.  Therefore, the default is
-            nil.  When browsers get better, this switch can be flipped.
+messages    Should display messages in corner?
 
 You can also customize this for each buffer, using something like
 
-#+MATHJAX: scale:\"133\" align:\"right\" mathml:t path:\"/MathJax/\""
+#+HTML_MATHJAX: scale:110 dscale:190 align:left messages:none"
   :group 'org-export-twbs
   :type '(list :greedy t
                (list :tag "path   (the path from where to load MathJax.js)"
                      (const :format "       " path) (string))
-               (list :tag "scale  (scaling for the displayed math)"
+               (list :tag "scale  (scaling for math)"
+                     (const :format "       " scale) (string))
+               (list :tag "dscale  (scaling for the displayed math)"
                      (const :format "       " scale) (string))
                (list :tag "align  (alignment of displayed equations)"
                      (const :format "       " align) (string))
                (list :tag "indent (indentation with left or right alignment)"
                      (const :format "       " indent) (string))
-               (list :tag "mathml (should MathML display be used is possible)"
-                     (const :format "       " mathml) (boolean))))
+               (list :tag "messages (show pocessing messages in corner)"
+                     (const :format "       " messages)
+                     (choice (const "none")
+                             (const "simple")))))
 
 (defcustom org-twbs-mathjax-template
-  "<script type=\"text/javascript\" src=\"%PATH\"></script>
-<script type=\"text/javascript\">
-<!--/*--><![CDATA[/*><!--*/
-    MathJax.Hub.Config({
-        // Only one of the two following lines, depending on user settings
-        // First allows browser-native MathML display, second forces HTML/CSS
-        :MMLYES: config: [\"MMLorHTML.js\"], jax: [\"input/TeX\"],
-        :MMLNO: jax: [\"input/TeX\", \"output/HTML-CSS\"],
-        extensions: [\"tex2jax.js\",\"TeX/AMSmath.js\",\"TeX/AMSsymbols.js\",
-                     \"TeX/noUndefined.js\"],
-        tex2jax: {
-            inlineMath: [ [\"\\\\(\",\"\\\\)\"] ],
-            displayMath: [ ['$$','$$'], [\"\\\\[\",\"\\\\]\"], [\"\\\\begin{displaymath}\",\"\\\\end{displaymath}\"] ],
-            skipTags: [\"script\",\"noscript\",\"style\",\"textarea\",\"pre\",\"code\"],
-            ignoreClass: \"tex2jax_ignore\",
-            processEscapes: false,
-            processEnvironments: true,
-            preview: \"TeX\"
-        },
-        showProcessingMessages: true,
-        displayAlign: \"%ALIGN\",
-        displayIndent: \"%INDENT\",
-
-        \"HTML-CSS\": {
-             scale: %SCALE,
-             availableFonts: [\"STIX\",\"TeX\"],
-             preferredFont: \"TeX\",
-             webFont: \"TeX\",
-             imageFont: \"TeX\",
-             showMathMenu: true,
-        },
-        MMLorHTML: {
-             prefer: {
-                 MSIE:    \"MML\",
-                 Firefox: \"MML\",
-                 Opera:   \"HTML\",
-                 other:   \"HTML\"
-             }
-        }
-    });
-/*]]>*///-->
-</script>"
+  "
+<script type=\"text/x-mathjax-config\">
+MathJax.Hub.Config({
+  displayAlign: \"%ALIGN\",
+  displayIndent: \"%INDENT\",
+  messageStyle: \"%MESSAGES\",
+  \"HTML-CSS\": {
+    scale: %SCALE,
+    styles: {
+      \".MathJax_Display\": {
+        \"font-size\": \"%DSCALE%\"
+      }
+    }
+  },
+  \"SVG\": {
+    scale: %SCALE,
+    styles: {
+      \".MathJax_SVG_Display\": {
+        \"font-size\": \"%DSCALE%\",
+        \"margin-left\": \"-2.281em\"
+      }
+    }
+  }
+});
+</script>
+<script type=\"text/javascript\" src=\"%PATH\"></script>"
   "The MathJax setup for HTML files."
   :group 'org-export-twbs
   :type 'string)
@@ -863,7 +901,7 @@ like that: \"%%\"."
   :type 'string)
 
 (defcustom org-twbs-creator-string
-  (format "<a href=\"http://www.gnu.org/software/emacs/\">Emacs</a> %s (<a href=\"http://orgmode.org\">Org</a> mode %s)"
+  (format "<a href=\"http://www.gnu.org/software/emacs/\">Emacs</a> %s (<a href=\"http://orgmode.org\">Org-mode</a> %s)"
           emacs-version
           (if (fboundp 'org-version) (org-version) "unknown version"))
   "Information about the creator of the HTML document.
@@ -985,9 +1023,9 @@ style information."
 
 (define-obsolete-variable-alias 'org-twbs-style 'org-twbs-head "24.4")
 (defcustom org-twbs-head "
-<link  href=\"https://cdnjs.cloudflare.com/ajax/libs/twitter-bootstrap/3.3.1/css/bootstrap.min.css\" rel=\"stylesheet\">
-<script src=\"https://cdnjs.cloudflare.com/ajax/libs/jquery/1.11.2/jquery.min.js\"></script>
-<script src=\"https://cdnjs.cloudflare.com/ajax/libs/twitter-bootstrap/3.3.1/js/bootstrap.min.js\"></script>"
+<link  href=\"https://cdnjs.cloudflare.com/ajax/libs/twitter-bootstrap/3.3.5/css/bootstrap.min.css\" rel=\"stylesheet\">
+<script src=\"https://cdnjs.cloudflare.com/ajax/libs/jquery/1.11.3/jquery.min.js\"></script>
+<script src=\"https://cdnjs.cloudflare.com/ajax/libs/twitter-bootstrap/3.3.5/js/bootstrap.min.js\"></script>"
   "Org-wide head definitions for exported HTML files.
 
 As the value of this option simply gets inserted into the HTML
@@ -1026,6 +1064,37 @@ CSS classes, then this prefix can be very useful."
   :group 'org-export-twbs
   :type 'string)
 
+(defcustom org-twbs-todo-kwd-class-undone "label-primary"
+  "Class name for TODO keywords which are not done.
+Traditionally this was not configurable, and was the value 'todo'."
+  :group 'org-export-twbs
+  :type 'string)
+
+(defcustom org-twbs-todo-kwd-class-done "label-default"
+  "Class name for TODO keywords which are done.
+Traditionally this was not configurable, and was the value 'done'."
+  :group 'org-export-twbs
+  :type 'string)
+
+;;;; Google Analytics
+
+(defcustom org-twbs-google-analytics "
+<script>
+  (function(i,s,o,g,r,a,m){i['GoogleAnalyticsObject']=r;i[r]=i[r]||function(){
+  (i[r].q=i[r].q||[]).push(arguments)},i[r].l=1*new Date();a=s.createElement(o),
+  m=s.getElementsByTagName(o)[0];a.async=1;a.src=g;m.parentNode.insertBefore(a,m)
+  })(window,document,'script','https://www.google-analytics.com/analytics.js','ga');
+
+  ga('create', '%s', 'auto');
+  ga('send', 'pageview');
+
+</script>\n"
+  "Snippet used to insert the Google Analytics tracking code.
+This is a format string, the %s will be replaced with the value
+set using the :gid keyword."
+  :group 'org-export-twbs
+  :type 'string)
+
 
 ;;; Internal Functions
 
@@ -1053,7 +1122,7 @@ arguments CAPTION and LABEL are given, use them for caption and
   (format "\n<figure%s>%s%s\n</figure>"
           ;; ID.
           (if (not (org-string-nw-p label)) ""
-            (format " id=\"%s\"" (org-export-solidify-link-text label)))
+            (format " id=\"%s\"" label))
           ;; Contents.
           (format "\n<p>%s</p>" contents)
           ;; Caption.
@@ -1184,17 +1253,25 @@ Replaces invalid characters with \"_\"."
                (org-twbs--anchor id n attributes)))
      def)))
 
+(defun org-twbs-collect-footnote-definitions (info)
+  "Signature change underneath us, released maybe with 8.3 commit URL at:
+http://orgmode.org/w/?p=org-mode.git;a=commit;h=014de0a532cbc60987d09d6040ed46195cffdf12
+Try the old 2-arity and if fails, try the new single-arity."
+  (with-no-warnings
+    (condition-case nil
+        (org-export-collect-footnote-definitions
+         (plist-get info :parse-tree) info)
+      (error (org-export-collect-footnote-definitions info)))))
+
 (defun org-twbs-footnote-section (info)
   "Format the footnote section.
 INFO is a plist used as a communication channel."
-  (let* ((fn-alist (org-export-collect-footnote-definitions
-                    (plist-get info :parse-tree) info))
+  (let* ((fn-alist (org-twbs-collect-footnote-definitions info))
          (fn-alist
           (loop for (n type raw) in fn-alist collect
                 (cons n (if (eq (org-element-type raw) 'org-data)
                             (org-trim (org-export-data raw info))
-                          (format "<p>%s</p>"
-                                  (org-trim (org-export-data raw info))))))))
+                          (org-trim (org-export-data raw info)))))))
     (when fn-alist
       (org-twbs-format-footnotes-section
        (org-twbs--translate "Footnotes" info)
@@ -1213,7 +1290,6 @@ INFO is a plist used as a communication channel."
            (replace-regexp-in-string
             "\"" "&quot;" (org-twbs-encode-plain-text str))))
         (title (org-export-data (plist-get info :title) info))
-        (gid (plist-get info :gid))
         (author (and (plist-get info :with-author)
                      (let ((auth (plist-get info :author)))
                        (and auth
@@ -1239,6 +1315,7 @@ INFO is a plist used as a communication channel."
       (org-twbs-close-tag "meta" "charset=\"%s\"" info)
       charset) "\n"
       "<meta name=\"viewport\" content=\"width=device-width, initial-scale=1\">"
+      "\n"
       (org-twbs-close-tag "meta" "name=\"generator\" content=\"Org-mode\"" info)
       "\n"
       (and (org-string-nw-p author)
@@ -1261,17 +1338,7 @@ INFO is a plist used as a communication channel."
                                 (format "name=\"keywords\" content=\"%s\""
                                         (funcall protect-string keywords))
                                 info)
-            "\n"))
-      (when gid
-        (format "<script>
-  (function(i,s,o,g,r,a,m){i['GoogleAnalyticsObject']=r;i[r]=i[r]||function(){
-  (i[r].q=i[r].q||[]).push(arguments)},i[r].l=1*new Date();a=s.createElement(o),
-  m=s.getElementsByTagName(o)[0];a.async=1;a.src=g;m.parentNode.insertBefore(a,m)
-  })(window,document,'script','//www.google-analytics.com/analytics.js','ga');
-
-  ga('create', '%s', 'auto');
-  ga('send', 'pageview');
-</script>\n" gid)))))
+            "\n")))))
 
 (defun org-twbs--build-head (info)
   "Return information for the <head>..</head> of the HTML output.
@@ -1279,7 +1346,6 @@ INFO is a plist used as a communication channel."
   (org-element-normalize-string
    (concat
     (org-element-normalize-string (plist-get info :html-head))
-    (org-element-normalize-string (plist-get info :html-head-extra))
     (when (and (plist-get info :html-htmlized-css-url)
                (eq org-twbs-htmlize-output-type 'css))
       (org-twbs-close-tag "link"
@@ -1288,7 +1354,10 @@ INFO is a plist used as a communication channel."
                           info))
     (when (plist-get info :html-head-include-default-style)
       (org-element-normalize-string org-twbs-style-default))
-    (when (plist-get info :html-head-include-scripts) org-twbs-scripts))))
+    (when (not (plist-get info :html-postamble))
+      "<style>body { margin-bottom: 0px; }</style>")
+    (when (plist-get info :html-head-include-scripts) org-twbs-scripts)
+    (org-element-normalize-string (plist-get info :html-head-extra)))))
 
 (defun org-twbs--build-mathjax-config (info)
   "Insert the user setup into the mathjax template.
@@ -1296,33 +1365,19 @@ INFO is a plist used as a communication channel."
   (when (and (memq (plist-get info :with-latex) '(mathjax t))
              (org-element-map (plist-get info :parse-tree)
                  '(latex-fragment latex-environment) 'identity info t))
-    (let ((template org-twbs-mathjax-template)
-          (options org-twbs-mathjax-options)
-          (in-buffer (or (plist-get info :html-mathjax) ""))
-          name val (yes "   ") (no "// ") x)
-      (mapc
-       (lambda (e)
-         (setq name (car e) val (nth 1 e))
-         (if (string-match (concat "\\<" (symbol-name name) ":") in-buffer)
-             (setq val (car (read-from-string
-                             (substring in-buffer (match-end 0))))))
-         (if (not (stringp val)) (setq val (format "%s" val)))
-         (if (string-match (concat "%" (upcase (symbol-name name))) template)
-             (setq template (replace-match val t t template))))
-       options)
-      (setq val (nth 1 (assq 'mathml options)))
-      (if (string-match (concat "\\<mathml:") in-buffer)
-          (setq val (car (read-from-string
-                          (substring in-buffer (match-end 0))))))
-      ;; Exchange prefixes depending on mathml setting.
-      (if (not val) (setq x yes yes no no x))
-      ;; Replace cookies to turn on or off the config/jax lines.
-      (if (string-match ":MMLYES:" template)
-          (setq template (replace-match yes t t template)))
-      (if (string-match ":MMLNO:" template)
-          (setq template (replace-match no t t template)))
-      ;; Return the modified template.
-      (org-element-normalize-string template))))
+    (let ((template (plist-get info :html-mathjax-template))
+          (options (plist-get info :html-mathjax-options))
+          (in-buffer (or (plist-get info :html-mathjax) "")))
+      (dolist (e options (org-element-normalize-string template))
+        (let ((name (car e))
+              (val (nth 1 e)))
+          (when (string-match (concat "\\<" (symbol-name name) ":") in-buffer)
+            (setq val
+                  (car (read-from-string (substring in-buffer (match-end 0))))))
+          (unless (stringp val) (setq val (format "%s" val)))
+          (while (string-match (concat "%" (upcase (symbol-name name)))
+                               template)
+            (setq template (replace-match val t t template))))))))
 
 (defun org-twbs-format-spec (info)
   "Return format specification for elements that can be
@@ -1411,9 +1466,6 @@ communication channel."
 CONTENTS is the transcoded contents string.  INFO is a plist
 holding export options."
   (concat
-   ;; Table of contents.
-   (let ((depth (plist-get info :with-toc)))
-     (when depth (org-twbs-toc depth info)))
    ;; Document contents.
    contents
    ;; Footnotes section.
@@ -1445,22 +1497,31 @@ holding export options."
            (nth 1 (assq 'content org-twbs-divs))
            (nth 2 (assq 'content org-twbs-divs))
            (nth 3 (assq 'content org-twbs-divs)))
-   ;; twbs row
+   ;; Main doc body twbs row
    "<div class=\"row\">"
-   "<div class=\"col-md-9\">"
+   (if (plist-get info :with-toc) "<div class=\"col-md-9\">"
+     "<div class=\"col-md-12\">")
    ;; Document title.
    (let ((title (plist-get info :title)))
      (format "<h1 class=\"title\">%s</h1>\n" (org-export-data (or title "") info)))
    contents
    "</div>"
-   "<div class=\"col-md-3\">"
-   (org-twbs-toc 3 info)
-   "</div>"
+   ;; Table of contents.
+   (let ((depth (plist-get info :with-toc)))
+     (when depth
+       (concat
+        "<div class=\"col-md-3\">"
+        (org-twbs-toc depth info)
+        "</div>")))
    "</div>"
    (format "</%s>\n"
            (nth 1 (assq 'content org-twbs-divs)))
    ;; Postamble.
    (org-twbs--build-pre/postamble 'postamble info)
+   ;; Google Analytics
+   (let ((gid (plist-get info :gid)))
+     (when gid
+       (format org-twbs-google-analytics gid)))
    ;; Closing document.
    "</body>\n</html>"))
 
@@ -1484,10 +1545,15 @@ INFO is a plist used as a communication channel."
 (defun org-twbs--todo (todo)
   "Format TODO keywords into HTML."
   (when todo
-    (format "<span class=\"%s %s%s\">%s</span>"
-            (if (member todo org-done-keywords) "done" "todo")
-            org-twbs-todo-kwd-class-prefix (org-twbs-fix-class-name todo)
-            todo)))
+    (let* ((is-done (member todo org-done-keywords))
+           (class (if is-done org-twbs-todo-kwd-class-done
+                    org-twbs-todo-kwd-class-undone))
+           (is-label (string-prefix-p "label-" class)))
+      (format "<span class=\"%s%s %s%s\">%s</span>"
+              (if is-label "label " "")
+              class
+              org-twbs-todo-kwd-class-prefix (org-twbs-fix-class-name todo)
+              todo))))
 
 ;;;; Tags
 
@@ -1497,7 +1563,8 @@ INFO is a plist used as a communication channel."
     (format "<span class=\"tag\">%s</span>"
             (mapconcat
              (lambda (tag)
-               (format "<span class=\"%s\">%s</span>"
+               (format "<span class=\"%s %s\">%s</span>"
+                       org-twbs-tag-class
                        (concat org-twbs-tag-class-prefix
                                (org-twbs-fix-class-name tag))
                        tag))
@@ -1627,7 +1694,21 @@ a plist used as a communication channel."
 
 ;;; Tables of Contents
 
-(defun org-twbs-toc (depth info)
+(defun org-twbs-display-headline-number-p (headline-number info)
+  "Predicate deciding if headline number should be displayed."
+  (let ((whn (plist-get info :with-headline-numbers)))
+    (or (eq whn t) (and (wholenump whn) (<= (length headline-number) whn)))))
+
+(defun org-twbs-collect-headlines (info depth &optional scope)
+  "Another arity change in org:
+http://orgmode.org/w/?p=org-mode.git;a=commit;h=b07e2f6ff1feddde83506b7fdb370bfe8e0a5337
+Try new 3-arity first, then old 2-arity."
+  (with-no-warnings
+    (condition-case nil
+        (org-export-collect-headlines info depth scope)
+      (error (org-export-collect-headlines info depth)))))
+
+(defun org-twbs-toc (depth info &optional scope)
   "Build a table of contents.
 DEPTH is an integer specifying the depth of the table.  INFO is a
 plist used as a communication channel.  Return the table of
@@ -1636,7 +1717,7 @@ contents as a string, or nil if it is empty."
          (mapcar (lambda (headline)
                    (cons (org-twbs--format-toc-headline headline info)
                          (org-export-get-relative-level headline info)))
-                 (org-export-collect-headlines info depth)))
+                 (org-twbs-collect-headlines info depth scope)))
         (outer-tag "nav"))
     (when toc-entries
       (concat (format "<%s id=\"table-of-contents\">\n" outer-tag)
@@ -1675,6 +1756,7 @@ and value is its relative level, as an integer."
 INFO is a plist used as a communication channel."
   (let* ((headline-number (org-export-get-headline-number headline info))
          (todo (and (plist-get info :with-todo-keywords)
+                    (plist-get info :with-toc-todo-keywords)
                     (let ((todo (org-element-property :todo-keyword headline)))
                       (and todo (org-export-data todo info)))))
          (todo-type (and todo (org-element-property :todo-type headline)))
@@ -1686,24 +1768,25 @@ INFO is a plist used as a communication channel."
                 ;; footnote-reference, link, radio-target and target
                 ;; in table of contents.
                 (org-export-create-backend
-                 :parent 'html
+                 :parent 'twbs
                  :transcoders '((footnote-reference . ignore)
                                 (link . (lambda (object c i) c))
                                 (radio-target . (lambda (object c i) c))
                                 (target . ignore)))
                 info))
-         (tags (and (eq (plist-get info :with-tags) t)
+         (tags (and (plist-get info :with-tags)
+                    (plist-get info :with-toc-tags)
                     (org-export-get-tags headline info))))
     (format "<a href=\"#%s\">%s</a>"
             ;; Label.
-            (org-export-solidify-link-text
-             (or (org-element-property :CUSTOM_ID headline)
-                 (concat "sec-"
-                         (mapconcat #'number-to-string headline-number "-"))))
+            (or (org-element-property :CUSTOM_ID headline)
+                (concat "sec-"
+                        (mapconcat #'number-to-string headline-number "-")))
             ;; Body.
             (concat
              (and (not (org-export-low-level-p headline info))
                   (org-export-numbered-headline-p headline info)
+                  (org-twbs-display-headline-number-p headline-number info)
                   (concat (mapconcat #'number-to-string headline-number ".")
                           ". "))
              (apply (if (not (eq org-twbs-format-headline-function 'ignore))
@@ -1741,7 +1824,7 @@ of listings as a string, or nil if it is empty."
                       (if (not label)
                           (concat (format initial-fmt (incf count)) " " title)
                         (format "<a href=\"#%s\">%s %s</a>"
-                                (org-export-solidify-link-text label)
+                                label
                                 (format initial-fmt (incf count))
                                 title))
                       "</li>")))
@@ -1776,7 +1859,7 @@ of tables as a string, or nil if it is empty."
                       (if (not label)
                           (concat (format initial-fmt (incf count)) " " title)
                         (format "<a href=\"#%s\">%s %s</a>"
-                                (org-export-solidify-link-text label)
+                                label
                                 (format initial-fmt (incf count))
                                 title))
                       "</li>")))
@@ -1815,9 +1898,7 @@ channel."
 </span>
 </p>"
           org-clock-string
-          (org-translate-time
-           (org-element-property :raw-value
-                                 (org-element-property :value clock)))
+          (org-timestamp-translate (org-element-property :value clock))
           (let ((time (org-element-property :duration clock)))
             (and time (format " <span class=\"timestamp\">(%s)</span>" time)))))
 
@@ -1935,6 +2016,7 @@ holding contextual information."
          (headline-number (org-export-get-headline-number headline info))
          (section-number (and (not (org-export-low-level-p headline info))
                               (org-export-numbered-headline-p headline info)
+                              (org-twbs-display-headline-number-p headline-number info)
                               (mapconcat 'number-to-string
                                          headline-number ".")))
          (todo (and (plist-get info :with-todo-keywords)
@@ -1989,8 +2071,7 @@ holding contextual information."
            (extra-ids (mapconcat
                        (lambda (id)
                          (org-twbs--anchor
-                          (org-export-solidify-link-text
-                           (if (org-uuidgen-p id) (concat "ID-" id) id))))
+                          (if (org-uuidgen-p id) (concat "ID-" id) id)))
                        (cdr ids) ""))
            ;; Create the headline text.
            (full-text (org-twbs-format-headline--wrap headline info)))
@@ -2071,7 +2152,7 @@ holding contextual information."
     (let ((format-function
            (function*
             (lambda (todo todo-type priority text tags
-                     &key contents &allow-other-keys)
+                          &key contents &allow-other-keys)
               (funcall org-twbs-format-inlinetask-function
                        todo todo-type priority text tags contents)))))
       (org-twbs-format-headline--wrap
@@ -2168,6 +2249,17 @@ CONTENTS is nil.  INFO is a plist holding contextual information."
 
 ;;;; Latex Environment
 
+(defun org-twbs-format-latex-arity (prefix &optional dir overlays msg
+                                           at forbuffer processing-type)
+  "Arity fix for org-format-latex signature change here:
+http://orgmode.org/w/?p=org-mode.git;a=commit;h=8daf4a89f1a157c0ee2c91e5b990203679b31cf7
+Call 7-arity first, then 6-arity if first fails."
+  (with-no-warnings
+    (condition-case nil
+        (org-format-latex prefix dir overlays msg at forbuffer processing-type)
+      (error
+       (org-format-latex prefix dir overlays msg forbuffer processing-type)))))
+
 (defun org-twbs-format-latex (latex-frag processing-type info)
   "Format a LaTeX fragment LATEX-FRAG into HTML.
 PROCESSING-TYPE designates the tool used for conversion.  It is
@@ -2198,8 +2290,9 @@ a plist containing export properties."
         (setq latex-frag (concat latex-header latex-frag))))
     (with-temp-buffer
       (insert latex-frag)
-      (org-format-latex cache-relpath cache-dir nil "Creating LaTeX Image..."
-                        nil nil processing-type)
+      (org-twbs-format-latex-arity cache-relpath cache-dir nil
+                                   "Creating LaTeX Image..."
+                                   nil nil processing-type)
       (buffer-string))))
 
 (defun org-twbs-latex-environment (latex-environment contents info)
@@ -2310,9 +2403,27 @@ images, set it to:
                info nil 'link)
              (= link-count 1))))))
 
+(defun org-twbs-export-file-uri (filename)
+  "Return file URI associated to FILENAME."
+  (cond ((org-string-match-p "\\`//" filename) (concat "file:" filename))
+        ((not (file-name-absolute-p filename)) filename)
+        ((org-file-remote-p filename) (concat "file:/" filename))
+        (t (concat "file://" (expand-file-name filename)))))
+
+(defun org-twbs-fuzzy (file search)
+  (cond ((fboundp 'org-publish-resolve-external-fuzzy-link)
+         (let ((numbers
+                (org-publish-resolve-external-fuzzy-link file search)))
+           (and numbers (concat "#sec-"
+                                (mapconcat 'number-to-string
+                                           numbers "-")))))
+        ((fboundp 'org-publish-resolve-external-link)
+         (let ((rez (org-publish-resolve-external-link search file)))
+           (concat "#" rez)))
+        (t "")))
+
 (defun org-twbs-link (link desc info)
   "Transcode a LINK object from Org to HTML.
-
 DESC is the description part of the link, or the empty string.
 INFO is a plist holding contextual information.  See
 `org-export-data'."
@@ -2320,17 +2431,16 @@ INFO is a plist holding contextual information.  See
                  (org-trim (plist-get info :html-link-home))))
          (use-abs-url (plist-get info :html-link-use-abs-url))
          (link-org-files-as-html-maybe
-          (function
-           (lambda (raw-path info)
-             "Treat links to `file.org' as links to `file.html', if needed.
-           See `org-twbs-link-org-files-as-html'."
-             (cond
-              ((and org-twbs-link-org-files-as-html
-                    (string= ".org"
-                             (downcase (file-name-extension raw-path "."))))
-               (concat (file-name-sans-extension raw-path) "."
-                       (plist-get info :html-extension)))
-              (t raw-path)))))
+          (lambda (raw-path info)
+            ;; Treat links to `file.org' as links to `file.html', if
+            ;; needed.  See `org-twbs-link-org-files-as-html'.
+            (cond
+             ((and (plist-get info :html-link-org-files-as-html)
+                   (string= ".org"
+                            (downcase (file-name-extension raw-path "."))))
+              (concat (file-name-sans-extension raw-path) "."
+                      (plist-get info :html-extension)))
+             (t raw-path))))
          (type (org-element-property :type link))
          (raw-path (org-element-property :path link))
          ;; Ensure DESC really exists, or set it to nil.
@@ -2346,30 +2456,25 @@ INFO is a plist holding contextual information.  See
             (setq raw-path
                   (funcall link-org-files-as-html-maybe raw-path info))
             ;; If file path is absolute, prepend it with protocol
-            ;; component - "file:".
+            ;; component - "file://".
             (cond
              ((file-name-absolute-p raw-path)
-              (setq raw-path (concat "file:" raw-path)))
+              (setq raw-path (org-twbs-export-file-uri raw-path)))
              ((and home use-abs-url)
               (setq raw-path (concat (file-name-as-directory home) raw-path))))
             ;; Add search option, if any.  A search option can be
-            ;; relative to a custom-id or a headline title.  Any other
-            ;; option is ignored.
+            ;; relative to a custom-id, a headline title a name,
+            ;; a target or a radio-target.
             (let ((option (org-element-property :search-option link)))
               (cond ((not option) raw-path)
-                    ((eq (aref option 0) ?#) (concat raw-path option))
-                    ;; External fuzzy link: try to resolve it if path
-                    ;; belongs to current project, if any.
-                    ((eq (aref option 0) ?*)
-                     (concat
-                      raw-path
-                      (let ((numbers
-                             (org-publish-resolve-external-fuzzy-link
-                              (org-element-property :path link) option)))
-                        (and numbers (concat "#sec-"
-                                             (mapconcat 'number-to-string
-                                                        numbers "-"))))))
-                    (t raw-path))))
+                    ;; Since HTML back-end use custom-id value as-is,
+                    ;; resolving is them is trivial.
+                    ((eq (string-to-char option) ?#) (concat raw-path option))
+                    (t
+                     (concat raw-path
+                             (org-twbs-fuzzy
+                              (org-element-property :path link)
+                              option))))))
            (t raw-path)))
          ;; Extract attributes from parent's paragraph.  HACK: Only do
          ;; this for the first link in parent (inner image link for
@@ -2386,12 +2491,12 @@ INFO is a plist holding contextual information.  See
                  (org-export-read-attribute :attr_html parent))))
          (attributes
           (let ((attr (org-twbs--make-attribute-string attributes-plist)))
-            (if (org-string-nw-p attr) (concat " " attr) "")))
-         protocol)
+            (if (org-string-nw-p attr) (concat " " attr) ""))))
     (cond
      ;; Image file.
-     ((and org-twbs-inline-images
-           (org-export-inline-image-p link org-twbs-inline-image-rules))
+     ((and (plist-get info :html-inline-images)
+           (org-export-inline-image-p
+            link (plist-get info :html-inline-image-rules)))
       (org-twbs--format-image path attributes-plist info))
      ;; Radio target: Transcode target's contents and use them as
      ;; link's description.
@@ -2399,8 +2504,7 @@ INFO is a plist holding contextual information.  See
       (let ((destination (org-export-resolve-radio-link link info)))
         (if (not destination) desc
           (format "<a href=\"#%s\"%s>%s</a>"
-                  (org-export-solidify-link-text
-                   (org-element-property :value destination))
+                  (org-element-property :value destination)
                   attributes desc))))
      ;; Links pointing to a headline: Find destination and build
      ;; appropriate referencing command.
@@ -2440,25 +2544,21 @@ INFO is a plist holding contextual information.  See
                                        (org-export-get-headline-number
                                         destination info) "-")))
                    (t (error "Shouldn't reach here"))))
-                 ;; What description to use?
+                 ;; What description to use?  Previously, we'd look if
+                 ;; section numbering was enabled, and use that
+                 ;; number, however, rendering a link description as
+                 ;; number seems less useful than destination title.
+                 ;; And since Org 8.3 there has been a lot of
+                 ;; dependencies on :section-number, so will do
+                 ;; something simple here for now.
                  (desc
-                  ;; Case 1: Headline is numbered and LINK has no
-                  ;; description.  Display section number.
-                  (if (and (org-export-numbered-headline-p destination info)
-                           (not desc))
-                      (mapconcat 'number-to-string
-                                 (org-export-get-headline-number
-                                  destination info) ".")
-                    ;; Case 2: Either the headline is un-numbered or
-                    ;; LINK has a custom description.  Display LINK's
-                    ;; description or headline's title.
-                    (or desc (org-export-data (org-element-property
-                                               :title destination) info)))))
+                  (or desc (org-export-data (org-element-property
+                                             :title destination) info))))
              (format "<a href=\"#%s\"%s>%s</a>"
-                     (org-export-solidify-link-text href) attributes desc)))
+                     href attributes desc)))
           ;; Fuzzy link points to a target or an element.
           (t
-           (let* ((path (org-export-solidify-link-text path))
+           (let* ((path path)
                   (org-twbs-standalone-image-predicate 'org-twbs--has-caption-p)
                   (number (cond
                            (desc nil)
@@ -2477,24 +2577,23 @@ INFO is a plist holding contextual information.  See
      ;; Coderef: replace link with the reference name or the
      ;; equivalent line number.
      ((string= type "coderef")
-      (let ((fragment (concat "coderef-" path)))
+      (let ((fragment (concat "coderef-" (org-twbs-encode-plain-text path))))
         (format "<a href=\"#%s\"%s%s>%s</a>"
                 fragment
-                (org-trim
-                 (format (concat "class=\"coderef\""
-                                 " onmouseover=\"CodeHighlightOn(this, '%s');\""
-                                 " onmouseout=\"CodeHighlightOff(this, '%s');\"")
-                         fragment fragment))
+                (format "class=\"coderef\" onmouseover=\"CodeHighlightOn(this, \
+'%s');\" onmouseout=\"CodeHighlightOff(this, '%s');\""
+                        fragment fragment)
                 attributes
                 (format (org-export-get-coderef-format path desc)
                         (org-export-resolve-coderef path info)))))
-     ;; Link type is handled by a special function.
-     ((functionp (setq protocol (nth 2 (assoc type org-link-protocols))))
-      (funcall protocol (org-link-unescape path) desc 'html))
      ;; External link with a description part.
-     ((and path desc) (format "<a href=\"%s\"%s>%s</a>" path attributes desc))
+     ((and path desc) (format "<a href=\"%s\"%s>%s</a>"
+                              (org-twbs-encode-plain-text path)
+                              attributes
+                              desc))
      ;; External link without a description part.
-     (path (format "<a href=\"%s\"%s>%s</a>" path attributes path))
+     (path (let ((path (org-twbs-encode-plain-text path)))
+             (format "<a href=\"%s\"%s>%s</a>" path attributes path)))
      ;; No path, only description.  Try to do something useful.
      (t (format "<i>%s</i>" desc)))))
 
@@ -2628,18 +2727,15 @@ channel."
              (let ((closed (org-element-property :closed planning)))
                (when closed
                  (format span-fmt org-closed-string
-                         (org-translate-time
-                          (org-element-property :raw-value closed)))))
+                         (org-timestamp-translate closed))))
              (let ((deadline (org-element-property :deadline planning)))
                (when deadline
                  (format span-fmt org-deadline-string
-                         (org-translate-time
-                          (org-element-property :raw-value deadline)))))
+                         (org-timestamp-translate deadline))))
              (let ((scheduled (org-element-property :scheduled planning)))
                (when scheduled
                  (format span-fmt org-scheduled-string
-                         (org-translate-time
-                          (org-element-property :raw-value scheduled)))))))
+                         (org-timestamp-translate scheduled))))))
       " "))))
 
 ;;;; Property Drawer
@@ -2689,7 +2785,7 @@ holding contextual information."
         (format "<div class=\"outline-text-%d\" id=\"text-%s\">\n%s</div>"
                 class-num
                 (or (org-element-property :CUSTOM_ID parent) section-number)
-                contents)))))
+                (or contents ""))))))
 
 ;;;; Radio Target
 
@@ -2697,8 +2793,7 @@ holding contextual information."
   "Transcode a RADIO-TARGET object from Org to HTML.
 TEXT is the text of the target.  INFO is a plist holding
 contextual information."
-  (let ((id (org-export-solidify-link-text
-             (org-element-property :value radio-target))))
+  (let ((id (org-element-property :value radio-target)))
     (org-twbs--anchor id text)))
 
 ;;;; Special Block
@@ -2710,11 +2805,19 @@ holding contextual information."
   (let* ((block-type (downcase
                       (org-element-property :type special-block)))
          (contents (or contents ""))
+         (is-html5-tag? (member block-type org-html-html5-elements))
          (attributes (org-export-read-attribute :attr_html special-block)))
+    (unless is-html5-tag?
+      (let ((class (plist-get attributes :class)))
+        (setq attributes (plist-put attributes :class
+                                    (if class (concat class " " block-type)
+                                      block-type)))))
     (setq attributes (org-twbs--make-attribute-string attributes))
     (when (not (equal attributes ""))
       (setq attributes (concat " " attributes)))
-    (format "<%s%s>\n%s</%s>" block-type attributes contents block-type)))
+    (if is-html5-tag?
+        (format "<%s%s>\n%s</%s>" block-type attributes contents block-type)
+      (format "<div%s>\n%s\n</div>" attributes contents))))
 
 ;;;; Src Block
 
@@ -2730,7 +2833,7 @@ contextual information."
           (label (let ((lbl (org-element-property :name src-block)))
                    (if (not lbl) ""
                      (format " id=\"%s\""
-                             (org-export-solidify-link-text lbl))))))
+                             lbl)))))
       (if (not lang) (format "<pre class=\"example\"%s>\n%s</pre>" label code)
         (format
          "<div class=\"org-src-container\">\n%s%s\n</div>"
@@ -2891,7 +2994,7 @@ contextual information."
             (attributes
              (org-twbs--make-attribute-string
               (org-combine-plists
-               (and label (list :id (org-export-solidify-link-text label)))
+               (and label (list :id label))
                (plist-get info :html-table-attributes)
                (org-export-read-attribute :attr_html table))))
             (alignspec
@@ -2938,8 +3041,7 @@ contextual information."
   "Transcode a TARGET object from Org to HTML.
 CONTENTS is nil.  INFO is a plist holding contextual
 information."
-  (let ((id (org-export-solidify-link-text
-             (org-element-property :value target))))
+  (let ((id (org-element-property :value target)))
     (org-twbs--anchor id)))
 
 ;;;; Timestamp
